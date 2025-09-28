@@ -1,15 +1,11 @@
-# Kültür Yolu — OFFLINE/NO‑CDN
+# Kültür Yolu — OFFLINE/NO‑CDN (v1.2.1)
 
-Bu sürüm tamamen yerel dosyalarla çalışır (CDN/Babel yok). Android WebView'da siyah ekran problemini önlemek için sade, vanilla JS ile yazıldı.
-
-## Yapı
-- `www/index.html` — tek dosya uygulama (CSS + JS gömülü)
-- `www/data/*.csv` — gömülü CSV'ler
-- `www/icons/*` — ikonlar
-- `.github/workflows/build-android.yml`, `package.json`, `capacitor.config.json`
+- Yazılar (soru/şık/select/option) **beyaz**.
+- APK artifact adı: **KulturYolu.apk**.
+- Uygulama adı (launcher): **Kültür Yolu**.
 
 ## APK alma
-Actions → **Build Android APK**. Bittiğinde artifact'tan indir.
+Actions → **Build Android APK** → Run. Bittiğinde **Artifacts → KulturYolu-APK** içinde **KulturYolu.apk** var.
 
-## Not
-Önceki sürüm yüklüyse cihazda **uygulama verisini temizleyin veya kaldırıp** yeni APK'yı kurun.
+## Kalıcı sorular
+`www/data/kolay.csv | orta.csv | zor.csv` dosyalarını güncelle → commit → yeniden build.
