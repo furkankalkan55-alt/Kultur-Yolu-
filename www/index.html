@@ -19,7 +19,6 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
-    const { motion, AnimatePresence } = window.framerMotion || {};
 
     const norm = (s) => (s ?? "").toString().normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -61,24 +60,12 @@
       return { alan: String(alan).trim(), seviye: String(seviye).trim(), soru: String(soru).trim(), A, B, C, D, dogru };
     }
 
-    const Badge = ({ children }) => (
-      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">{children}</span>
-    );
-    const SectionTitle = ({ children }) => (
-      <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">{children}</div>
-    );
-    const Card = ({ children }) => (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">{children}</div>
-    );
-    const TimerBar = ({ seconds, total }) => {
-      const pct = Math.max(0, Math.min(100, (seconds / total) * 100));
-      return (<div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-        <div className="h-full bg-emerald-500 transition-[width] duration-300" style={{ width: pct + "%" }} />
-      </div>);
-    };
-    const Confetti = ({ trigger }) => (
-      <AnimatePresence>
-        {trigger && (
+    function Confetti({ trigger }) {
+      const FM = window.framerMotion;
+      if (!trigger || !FM) return null;
+      const { motion, AnimatePresence } = FM;
+      return (
+        <AnimatePresence>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="pointer-events-none fixed inset-0 overflow-hidden">
             {Array.from({length:40}).map((_, i) => (
@@ -87,13 +74,31 @@
                 animate={{ y: window.innerHeight + 40, rotate: 360 }}
                 transition={{ duration: 1.2 + Math.random() * 0.8, ease: "easeIn" }}
                 className="absolute w-2 h-3 rounded-sm"
-                style={{ backgroundColor: `hsl(${Math.floor(Math.random()*360)} 80% 60%)`, left: 0 }}
+                style={{ backgroundColor: \`hsl(\${Math.floor(Math.random()*360)} 80% 60%)\`, left: 0 }}
               />
             ))}
           </motion.div>
-        )}
-      </AnimatePresence>
-    );
+        </AnimatePresence>
+      );
+    }
+
+    function Badge({ children }) {
+      return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">{children}</span>;
+    }
+    function SectionTitle({ children }) {
+      return <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">{children}</div>;
+    }
+    function Card({ children }) {
+      return <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">{children}</div>;
+    }
+    function TimerBar({ seconds, total }) {
+      const pct = Math.max(0, Math.min(100, (seconds / total) * 100));
+      return (
+        <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+          <div className="h-full bg-emerald-500 transition-[width] duration-300" style={{ width: pct + "%" }} />
+        </div>
+      );
+    }
 
     function App() {
       const [urls, setUrls] = useLocalStorage("quiz_urls", {
@@ -125,12 +130,8 @@
           osc.connect(gain).connect(ctx.destination); osc.start(t); osc.stop(t + dur); t += dur + 0.03;
         });
       }, [muted]);
-      const playCorrect = React.useCallback(() => {
-        playSequence([[784,0.12,'sine',0.06],[880,0.12,'sine',0.06],[1046,0.18,'triangle',0.06]]);
-      }, [playSequence]);
-      const playWrong = React.useCallback(() => {
-        playSequence([[220,0.18,'sawtooth',0.05],[160,0.22,'sawtooth',0.04]]);
-      }, [playSequence]);
+      const playCorrect = React.useCallback(() => { playSequence([[784,0.12,'sine',0.06],[880,0.12,'sine',0.06],[1046,0.18,'triangle',0.06]]); }, [playSequence]);
+      const playWrong = React.useCallback(() => { playSequence([[220,0.18,'sawtooth',0.05],[160,0.22,'sawtooth',0.04]]); }, [playSequence]);
 
       const [data, setData] = useState({ Kolay: [], Orta: [], Zor: [] });
       const [loaded, setLoaded] = useState({ Kolay: false, Orta: false, Zor: false });
@@ -210,22 +211,21 @@
         setSelected(letter);
         const correct = letter === question.dogru;
         setScore((s) => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }));
-        if (correct) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 1200); playCorrect(); }
-        else { playWrong(); }
+        if (correct) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 1200); }
       }
 
       const ready = loaded[mode] && (data[mode]?.length > 0);
 
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100">
+          <Confetti trigger={showConfetti} />
           <div className="max-w-5xl mx-auto p-4 md:p-8">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Kültür Yolu</h1>
               <div className="flex items-center gap-2 text-sm">
                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">Mod: {mode}</span>
                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">Skor: {score.correct}/{score.total}</span>
-                <button onClick={()=>setMuted(m=>!m)}
-                  className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600">
+                <button onClick={()=>setMuted(m=>!m)} className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600">
                   {muted ? "Ses: Kapalı" : "Ses: Açık"}
                 </button>
               </div>
@@ -307,7 +307,7 @@
                       const isWrong = isSel && selected !== question.dogru;
                       return (
                         <button key={L} onClick={()=>choose(L)} disabled={!question||!!selected||seconds<=0}
-                          className={f`text-left px-3 py-2 rounded-xl border transition-colors ${selected ? (isCorrect ? "bg-emerald-600/20 border-emerald-500" : (isWrong ? "bg-rose-600/20 border-rose-500" : "bg-slate-900 border-slate-700")) : "bg-slate-900 border-slate-700 hover:border-slate-500"}`}>
+                          className={\`text-left px-3 py-2 rounded-xl border transition-colors \${selected ? (isCorrect ? "bg-emerald-600/20 border-emerald-500" : (isWrong ? "bg-rose-600/20 border-rose-500" : "bg-slate-900 border-slate-700")) : "bg-slate-900 border-slate-700 hover:border-slate-500"}\`}>
                           <span className="font-bold mr-2">{L})</span>{question[L]}
                         </button>
                       );
@@ -315,7 +315,7 @@
                   </div>
                   {selected && (
                     <div className="mt-3 flex items-center justify-between">
-                      <div className={`${selected===question.dogru?"text-emerald-400":"text-rose-400"}`}>
+                      <div className={\`text-sm \${selected===question.dogru?"text-emerald-400":"text-rose-400"}\`}>
                         {selected===question.dogru? "Doğru!" : seconds<=0? "Süre doldu." : "Yanlış."} Doğru cevap: <strong>{question.dogru}</strong>
                       </div>
                       <button onClick={pickRandomQuestion} className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700">Sonraki Soru</button>

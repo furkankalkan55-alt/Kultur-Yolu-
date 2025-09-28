@@ -1,6 +1,6 @@
-# Kültür Yolu (APK + PWA)
+# Kültür Yolu (APK + PWA) — FIXED
 
-Bu depo, yerel CSV'ler gömülü tam çalışan quiz uygulamasıdır.
+Bu depo, yerel CSV'ler gömülü tam çalışan quiz uygulamasıdır. (Android siyah ekranı giderildi.)
 
 ## İçerik
 - `www/` — PWA dosyaları (index, manifest, service worker, ikonlar, **data/** klasöründe CSV'ler)

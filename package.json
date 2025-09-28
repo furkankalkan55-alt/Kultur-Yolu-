@@ -1,8 +1,8 @@
 {
   "name": "kultur-yolu-capacitor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
-  "description": "Kültür Yolu quiz PWA embedded with CSVs, wrapped for Android via Capacitor.",
+  "description": "Kültür Yolu quiz PWA embedded with CSVs (fixed), wrapped for Android via Capacitor.",
   "scripts": {
     "cap:add:android": "npx cap add android",
     "cap:sync": "npx cap sync",
