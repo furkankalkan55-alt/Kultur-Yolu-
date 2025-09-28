@@ -1,352 +1,350 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Kültür Yolu</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0ea5e9">
-  <link rel="icon" href="icons/icon-192.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>html,body{background:#020617}</style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kültür Yolu</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --bg:#0b1220; --card:#101a2c; --ink:#e6eef9; --muted:#a8b3c7;
+  --pri:#3b82f6; --ok:#22c55e; --bad:#ef4444; --br:#1f2a44;
+}
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{max-width:960px;margin:0 auto;padding:16px 16px 48px}
+h1{margin:0 0 12px;font-size:28px}
+.badge{display:inline-block;background:#0f172a;border:1px solid var(--br);color:#cbd5e1;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--br);border-radius:16px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.row{display:grid;gap:16px}
+@media(min-width:860px){.row.two{grid-template-columns:1fr 1fr} .row.three{grid-template-columns:1fr 1fr 1fr}}
+.btn{cursor:pointer;border:1px solid var(--br);background:#0b1323;color:var(--ink);border-radius:12px;padding:8px 12px}
+.btn:hover{border-color:#334266}
+.btn.pri{background:var(--pri);border-color:#2c69d1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800;margin-bottom:6px;letter-spacing:.06em}
+select,input[type=text],input[type=range]{width:100%;background:#0b1323;border:1px solid var(--br);color:var(--ink);border-radius:12px;padding:8px 10px}
+small{color:var(--muted)}
+.opt{display:block;text-align:left;border:1px solid var(--br);border-radius:12px;padding:10px 12px;background:#0b1323}
+.opt.sel.ok{background:rgba(34,197,94,.15);border-color:#16a34a}
+.opt.sel.bad{background:rgba(239,68,68,.15);border-color:#ef4444}
+.header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.timer{height:8px;background:#13203a;border-radius:999px;overflow:hidden}
+.timer>div{height:100%;background:var(--ok);width:0%;transition:width .3s}
+.footer{margin-top:24px;text-align:center;color:#8aa2c7;font-size:12px}
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+<div class="wrap">
+  <div class="header">
+    <h1>Kültür Yolu</h1>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="badgeMode" class="badge">Mod: Orta</span>
+      <span id="badgeScore" class="badge">Skor: 0/0</span>
+      <button id="btnMute" class="btn">Ses: Açık</button>
+    </div>
+  </div>
 
-    const norm = (s) => (s ?? "").toString().normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-
-    function parseCSV(text) {
-      if (window.Papa) {
-        return new Promise((resolve) => window.Papa.parse(text, {
-          header: true, skipEmptyLines: true, complete: (res) => resolve(res.data)
-        }));
-      }
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      if (!lines.length) return [];
-      const sep = lines[0].includes(";") && !lines[0].includes(",") ? ";" : ",";
-      const headers = lines[0].split(sep).map((h) => h.replace(/^\ufeff/, "").trim());
-      return lines.slice(1).map((line) => {
-        const cells = line.split(sep).map((c) => c.trim());
-        const obj = {}; headers.forEach((h, i) => (obj[h] = cells[i] ?? "")); return obj;
-      });
-    }
-
-    function useLocalStorage(key, initial) {
-      const [state, setState] = useState(() => {
-        try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; } catch { return initial; }
-      });
-      useEffect(() => { try { localStorage.setItem(key, JSON.stringify(state)); } catch {} }, [key, state]);
-      return [state, setState];
-    }
-
-    function toQuestion(row) {
-      const map = {}; Object.keys(row || {}).forEach((k) => map[norm(k)] = row[k]);
-      const alan = map["alan"] ?? ""; const seviye = map["seviye"] ?? map["seviye "] ?? ""; const soru = map["soru"] ?? "";
-      const A = row["A"] ?? row["a"] ?? map["a"] ?? "";
-      const B = row["B"] ?? row["b"] ?? map["b"] ?? "";
-      const C = row["C"] ?? row["c"] ?? map["c"] ?? "";
-      const D = row["D"] ?? row["d"] ?? map["d"] ?? "";
-      const dogru = (map["dogru cevap"] ?? map["dogrucevap"] ?? map["dogru"] ?? map["doğru cevap"] ?? map["doğru"] ?? "")
-        .toString().trim().toUpperCase();
-      if (!alan || !seviye || !soru) return null;
-      return { alan: String(alan).trim(), seviye: String(seviye).trim(), soru: String(soru).trim(), A, B, C, D, dogru };
-    }
-
-    function Confetti({ trigger }) {
-      const FM = window.framerMotion;
-      if (!trigger || !FM) return null;
-      const { motion, AnimatePresence } = FM;
-      return (
-        <AnimatePresence>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="pointer-events-none fixed inset-0 overflow-hidden">
-            {Array.from({length:40}).map((_, i) => (
-              <motion.span key={i}
-                initial={{ y: -20, x: Math.random() * window.innerWidth, rotate: 0, opacity: 1 }}
-                animate={{ y: window.innerHeight + 40, rotate: 360 }}
-                transition={{ duration: 1.2 + Math.random() * 0.8, ease: "easeIn" }}
-                className="absolute w-2 h-3 rounded-sm"
-                style={{ backgroundColor: \`hsl(\${Math.floor(Math.random()*360)} 80% 60%)\`, left: 0 }}
-              />
-            ))}
-          </motion.div>
-        </AnimatePresence>
-      );
-    }
-
-    function Badge({ children }) {
-      return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">{children}</span>;
-    }
-    function SectionTitle({ children }) {
-      return <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">{children}</div>;
-    }
-    function Card({ children }) {
-      return <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">{children}</div>;
-    }
-    function TimerBar({ seconds, total }) {
-      const pct = Math.max(0, Math.min(100, (seconds / total) * 100));
-      return (
-        <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-          <div className="h-full bg-emerald-500 transition-[width] duration-300" style={{ width: pct + "%" }} />
+  <div class="card">
+    <div class="row two">
+      <div>
+        <label>1) Mod</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" data-mode="Kolay">Kolay</button>
+          <button class="btn pri" data-mode="Orta">Orta</button>
+          <button class="btn" data-mode="Zor">Zor</button>
         </div>
-      );
-    }
-
-    function App() {
-      const [urls, setUrls] = useLocalStorage("quiz_urls", {
-        Kolay: "./data/kolay.csv",
-        Orta:  "./data/orta.csv",
-        Zor:   "./data/zor.csv",
-      });
-      const [mode, setMode] = useLocalStorage("quiz_mode", "Orta");
-      const [timerSec, setTimerSec] = useLocalStorage("quiz_timer", 20);
-
-      const [muted, setMuted] = useLocalStorage("quiz_muted", false);
-      const audioCtxRef = useRef(null);
-      const ensureCtx = async () => {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return null;
-        if (!audioCtxRef.current) audioCtxRef.current = new AC();
-        if (audioCtxRef.current.state === 'suspended') { try { await audioCtxRef.current.resume(); } catch {} }
-        return audioCtxRef.current;
-      };
-      const playSequence = React.useCallback(async (tones=[]) => {
-        if (muted) return;
-        const ctx = await ensureCtx(); if (!ctx) return;
-        let t = ctx.currentTime;
-        tones.forEach(([freq, dur = 0.14, type = 'sine', vol = 0.05]) => {
-          const osc = ctx.createOscillator(); const gain = ctx.createGain();
-          osc.type = type; osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.0001, t); gain.gain.linearRampToValueAtTime(vol, t + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-          osc.connect(gain).connect(ctx.destination); osc.start(t); osc.stop(t + dur); t += dur + 0.03;
-        });
-      }, [muted]);
-      const playCorrect = React.useCallback(() => { playSequence([[784,0.12,'sine',0.06],[880,0.12,'sine',0.06],[1046,0.18,'triangle',0.06]]); }, [playSequence]);
-      const playWrong = React.useCallback(() => { playSequence([[220,0.18,'sawtooth',0.05],[160,0.22,'sawtooth',0.04]]); }, [playSequence]);
-
-      const [data, setData] = useState({ Kolay: [], Orta: [], Zor: [] });
-      const [loaded, setLoaded] = useState({ Kolay: false, Orta: false, Zor: false });
-
-      const [area, setArea] = useState(""); const [level, setLevel] = useState("");
-      const [question, setQuestion] = useState(null); const [askedIds, setAskedIds] = useState(new Set());
-      const [selected, setSelected] = useState(""); const [score, setScore] = useState({ correct: 0, total: 0 });
-
-      const [seconds, setSeconds] = useState(timerSec);
-      const [showConfetti, setShowConfetti] = useState(false);
-
-      const levels = ["Seviye 1","Seviye 2","Seviye 3","Seviye 4","Seviye 5"];
-      const areas = useMemo(() => Array.from(new Set((data[mode] || []).map(q => q.alan))).sort(), [data, mode]);
-      const filteredLevels = useMemo(() => {
-        if (!area) return [];
-        const lvls = Array.from(new Set((data[mode] || []).filter(q => q.alan === area).map(q => q.seviye)));
-        return levels.filter(l => lvls.includes(l));
-      }, [data, mode, area]);
-
-      useEffect(() => {
-        if (!question) return;
-        setSeconds(timerSec);
-        const t = setInterval(() => setSeconds((s) => s - 1), 1000);
-        return () => clearInterval(t);
-      }, [question, timerSec]);
-
-      useEffect(() => {
-        if (!question) return;
-        if (seconds <= 0 && !selected) {
-          setSelected("__TIMEOUT__");
-          setScore((s) => ({ correct: s.correct, total: s.total + 1 }));
-          playWrong();
-        }
-      }, [seconds, selected, question, playWrong]);
-
-      async function loadUrl(which) {
-        const url = urls[which]; if (!url) return;
-        try {
-          const res = await fetch(url);
-          const text = await res.text();
-          const rows = await parseCSV(text);
-          const qs = rows.map(toQuestion).filter(Boolean);
-          setData((d) => ({ ...d, [which]: qs }));
-          setLoaded((l) => ({ ...l, [which]: true }));
-        } catch (e) {
-          alert("Veri indirilemedi: " + e.message);
-        }
-      }
-
-      async function loadFile(which, file) {
-        const text = await file.text();
-        const rows = await parseCSV(text);
-        const qs = rows.map(toQuestion).filter(Boolean);
-        setData((d) => ({ ...d, [which]: qs }));
-        setLoaded((l) => ({ ...l, [which]: true }));
-      }
-
-      useEffect(() => {
-        ["Kolay","Orta","Zor"].forEach((m) => { if (urls[m]) loadUrl(m); });
-      }, []);
-
-      function resetSession() {
-        setArea(""); setLevel(""); setQuestion(null); setSelected(""); setAskedIds(new Set()); setScore({ correct: 0, total: 0 });
-      }
-      function pickRandomQuestion() {
-        const pool = (data[mode] || []).filter(q => ((!area || q.alan === area) && (!level || q.seviye === level)));
-        if (!pool.length) { setQuestion(null); return; }
-        const mkId = (q) => \`\${q.alan}|\${q.seviye}|\${q.soru}\`;
-        const unused = pool.filter(q => !askedIds.has(mkId(q)));
-        const list = unused.length ? unused : pool;
-        const q = list[Math.floor(Math.random() * list.length)];
-        setQuestion(q); setSelected(""); setShowConfetti(false);
-        setAskedIds((prev) => { const id = mkId(q); const next = new Set(prev); next.add(id); return next; });
-      }
-      function choose(letter) {
-        if (!question || selected) return;
-        setSelected(letter);
-        const correct = letter === question.dogru;
-        setScore((s) => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }));
-        if (correct) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 1200); }
-      }
-
-      const ready = loaded[mode] && (data[mode]?.length > 0);
-
-      return (
-        <div className="min-h-screen bg-slate-950 text-slate-100">
-          <Confetti trigger={showConfetti} />
-          <div className="max-w-5xl mx-auto p-4 md:p-8">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Kültür Yolu</h1>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">Mod: {mode}</span>
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">Skor: {score.correct}/{score.total}</span>
-                <button onClick={()=>setMuted(m=>!m)} className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600">
-                  {muted ? "Ses: Kapalı" : "Ses: Açık"}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">1) Mod</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {["Kolay","Orta","Zor"].map((m) => (
-                      <button key={m} onClick={()=>{setMode(m); resetSession();}}
-                        className={\`px-3 py-2 rounded-xl border \${mode===m?"bg-indigo-600 border-indigo-500":"bg-slate-900 border-slate-700 hover:border-slate-500"}\`}>
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-xs text-slate-400">Varsayılan CSV'ler gömülüdür. İsterseniz farklı bir CSV linki girip "Yükle" diyebilirsiniz.</div>
-                </div>
-                <div>
-                  <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">2) Saniye / Soru</div>
-                  <div className="flex items-center gap-3">
-                    <input type="range" min={5} max={60} value={timerSec} onChange={(e)=>setTimerSec(Number(e.target.value))} className="w-full" />
-                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700">{timerSec}s</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4 mt-6">
-                {["Kolay","Orta","Zor"].map((m) => (
-                  <div key={m} className="rounded-xl p-3 border border-slate-800 bg-slate-900/40">
-                    <div className="font-semibold mb-2">{m} verisi</div>
-                    <div className="flex gap-2">
-                      <input className="flex-1 rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-xs"
-                        placeholder="İsterseniz Google Sheet CSV bağlantısı girin" value={urls[m]}
-                        onChange={(e)=>setUrls({...urls,[m]: e.target.value})} />
-                      <button className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700" onClick={()=>loadUrl(m)}>Yükle</button>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-400">veya dosya yükle (.csv)</div>
-                    <input className="mt-1 block w-full text-xs" type="file" accept=".csv,text/csv"
-                      onChange={(e)=> e.target.files?.[0] && loadFile(m, e.target.files[0])} />
-                    <div className="mt-2 text-xs">Durum: {loaded[m]? <span className="text-emerald-400">{data[m].length} kayıt</span> : <span className="text-slate-400">yüklenmedi</span>}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 grid lg:grid-cols-3 gap-4">
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">
-                <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">3) Alan</div>
-                <select className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100" value={area}
-                  onChange={(e)=>{setArea(e.target.value); setLevel(""); setQuestion(null); setSelected("");}}>
-                  <option value="">{ready?"Alan seçiniz":"Veri yükleyin"}</option>
-                  {areas.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-                <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2 mt-3">4) Seviye</div>
-                <select className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100" value={level}
-                  onChange={(e)=>{setLevel(e.target.value); setQuestion(null); setSelected("");}}>
-                  <option value="">{area?"Seviye seçiniz":"Önce alan"}</option>
-                  {Array.from(new Set((data[mode] || []).filter(q => q.alan === area).map(q => q.seviye)))
-                    .filter(l => ["Seviye 1","Seviye 2","Seviye 3","Seviye 4","Seviye 5"].includes(l))
-                    .map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-                <button className="mt-3 w-full px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                  onClick={pickRandomQuestion} disabled={!ready || !area || !level}>Rastgele Soru</button>
-                <div className="mt-3 text-xs text-slate-400">Aynı oturumda sorular tekrarsız seçilir; havuz biterse tekrar olabilir.</div>
-              </div>
-
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">
-                <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">5) Soru</div>
-                {!question ? (<div className="text-slate-400 text-sm">Henüz soru seçilmedi.</div>) : (<div>
-                  <div className="mb-2 text-xs text-slate-400">{question.alan} • {question.seviye} • {mode}</div>
-                  <div className="text-lg font-semibold mb-3">{question.soru}</div>
-                  <TimerBar seconds={Math.max(0, seconds)} total={timerSec} />
-                  <div className="mt-3 grid gap-2">
-                    {["A","B","C","D"].map((L) => {
-                      const isSel = selected === L;
-                      const isCorrect = selected && L === question.dogru;
-                      const isWrong = isSel && selected !== question.dogru;
-                      return (
-                        <button key={L} onClick={()=>choose(L)} disabled={!question||!!selected||seconds<=0}
-                          className={\`text-left px-3 py-2 rounded-xl border transition-colors \${selected ? (isCorrect ? "bg-emerald-600/20 border-emerald-500" : (isWrong ? "bg-rose-600/20 border-rose-500" : "bg-slate-900 border-slate-700")) : "bg-slate-900 border-slate-700 hover:border-slate-500"}\`}>
-                          <span className="font-bold mr-2">{L})</span>{question[L]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {selected && (
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className={\`text-sm \${selected===question.dogru?"text-emerald-400":"text-rose-400"}\`}>
-                        {selected===question.dogru? "Doğru!" : seconds<=0? "Süre doldu." : "Yanlış."} Doğru cevap: <strong>{question.dogru}</strong>
-                      </div>
-                      <button onClick={pickRandomQuestion} className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700">Sonraki Soru</button>
-                    </div>
-                  )}
-                </div>)}
-              </div>
-
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl shadow-black/40">
-                <div className="uppercase tracking-wider text-xs text-slate-400 font-bold mb-2">6) İpuçları</div>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-300">
-                  <li>CSV başlıkları: <code>Alan,Seviye,Soru,A,B,C,D,Doğru Cevap</code></li>
-                  <li>Varsayılan CSV'ler gömülü: <code>./data/kolay.csv</code>, <code>./data/orta.csv</code>, <code>./data/zor.csv</code></li>
-                  <li>İsterseniz mod bazında farklı CSV linki yapıştırıp “Yükle” diyebilirsiniz.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-6 text-center text-xs text-slate-500">© Kültür Yolu • PWA</div>
-          </div>
+        <small>Varsayılan CSV'ler gömülüdür. İstersen buraya bağlantı girip Yükle diyebilirsin.</small>
+      </div>
+      <div>
+        <label>2) Saniye / Soru</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input id="rngTimer" type="range" min="5" max="60" value="20" />
+          <span class="badge" id="badgeTimer">20s</span>
         </div>
-      );
-    }
+      </div>
+    </div>
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+    <div class="row three" style="margin-top:16px">
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:6px">Kolay verisi</div>
+        <div style="display:flex;gap:8px">
+          <input id="urlKolay" type="text" placeholder="./data/kolay.csv" />
+          <button class="btn" data-load="Kolay">Yükle</button>
+        </div>
+        <small>veya dosya yükle</small>
+        <input id="fileKolay" type="file" accept=".csv,text/csv" />
+        <div><small>Durum: <span id="statKolay">yüklenmedi</span></small></div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:6px">Orta verisi</div>
+        <div style="display:flex;gap:8px">
+          <input id="urlOrta" type="text" placeholder="./data/orta.csv" />
+          <button class="btn" data-load="Orta">Yükle</button>
+        </div>
+        <small>veya dosya yükle</small>
+        <input id="fileOrta" type="file" accept=".csv,text/csv" />
+        <div><small>Durum: <span id="statOrta">yüklenmedi</span></small></div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:6px">Zor verisi</div>
+        <div style="display:flex;gap:8px">
+          <input id="urlZor" type="text" placeholder="./data/zor.csv" />
+          <button class="btn" data-load="Zor">Yükle</button>
+        </div>
+        <small>veya dosya yükle</small>
+        <input id="fileZor" type="file" accept=".csv,text/csv" />
+        <div><small>Durum: <span id="statZor">yüklenmedi</span></small></div>
+      </div>
+    </div>
+  </div>
 
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
-      });
-    }
-  </script>
+  <div class="row three" style="margin-top:16px">
+    <div class="card">
+      <label>3) Alan</label>
+      <select id="selArea"><option value="">Veri yükleyin</option></select>
+      <label style="margin-top:10px">4) Seviye</label>
+      <select id="selLevel"><option value="">Önce alan</option></select>
+      <button id="btnAsk" class="btn pri" style="margin-top:10px" disabled>Rastgele Soru</button>
+      <small id="hintAsk">Alan ve seviye seçin.</small>
+    </div>
+
+    <div class="card" id="qCard">
+      <label>5) Soru</label>
+      <div id="qMeta" style="color:#9fb3d6;font-size:12px;margin:4px 0 8px"></div>
+      <div id="qText" style="font-size:18px;font-weight:700;min-height:48px">Henüz soru seçilmedi.</div>
+      <div class="timer" style="margin-top:8px"><div id="qTimerBar"></div></div>
+      <div id="opts" style="margin-top:10px;display:grid;gap:8px"></div>
+      <div id="after" style="margin-top:10px;display:none;align-items:center;justify-content:space-between">
+        <div id="ans" style="font-size:14px"></div>
+        <button id="btnNext" class="btn">Sonraki Soru</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>6) İpuçları</label>
+      <ul style="margin-top:6px;color:#cbd5e1;line-height:1.5">
+        <li>CSV başlıkları: <code>Alan,Seviye,Soru,A,B,C,D,Doğru Cevap</code></li>
+        <li>Varsayılan CSV'ler yerleşik: <code>./data/kolay.csv</code>, <code>./data/orta.csv</code>, <code>./data/zor.csv</code></li>
+        <li>Mod bazında link girebilir veya dosya yükleyebilirsin.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">© Kültür Yolu • Offline/No‑CDN sürüm</div>
+</div>
+
+<script>
+(function(){
+  const modes = ["Kolay","Orta","Zor"];
+  const state = {
+    urls: { Kolay: "./data/kolay.csv", Orta: "./data/orta.csv", Zor: "./data/zor.csv" },
+    mode: "Orta",
+    timer: 20,
+    muted: false,
+    data: { Kolay: [], Orta: [], Zor: [] },
+    loaded: { Kolay: false, Orta: false, Zor: false },
+    area: "", level: "", asked: new Set(), q: null, selected: "", score: { ok:0, total:0 },
+    tick: null, left: 0
+  };
+
+  // UI refs
+  const qMeta = document.getElementById("qMeta");
+  const qText = document.getElementById("qText");
+  const opts = document.getElementById("opts");
+  const after = document.getElementById("after");
+  const ans = document.getElementById("ans");
+  const btnNext = document.getElementById("btnNext");
+  const qTimerBar = document.getElementById("qTimerBar");
+  const badgeMode = document.getElementById("badgeMode");
+  const badgeScore = document.getElementById("badgeScore");
+  const btnAsk = document.getElementById("btnAsk");
+  const selArea = document.getElementById("selArea");
+  const selLevel = document.getElementById("selLevel");
+  const rngTimer = document.getElementById("rngTimer");
+  const badgeTimer = document.getElementById("badgeTimer");
+  const btnMute = document.getElementById("btnMute");
+
+  // helpers
+  const norm = s => (s||"").toString().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim().toLowerCase();
+  function toQuestion(row){
+    const map={}; Object.keys(row||{}).forEach(k=>map[norm(k)]=row[k]);
+    const alan=map["alan"]||"", seviye=map["seviye"]||map["seviye "]||"", soru=map["soru"]||"";
+    const A=row["A"]||row["a"]||map["a"]||"", B=row["B"]||row["b"]||map["b"]||"", C=row["C"]||row["c"]||map["c"]||"", D=row["D"]||row["d"]||map["d"]||"";
+    const dogru=(map["dogru cevap"]||map["dogrucevap"]||map["dogru"]||map["doğru cevap"]||map["doğru"]||"").toString().trim().toUpperCase();
+    if(!alan||!seviye||!soru) return null;
+    return {alan: String(alan).trim(), seviye: String(seviye).trim(), soru: String(soru).trim(), A,B,C,D, dogru};
+  }
+  function parseCSV(text){
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if(!lines.length) return [];
+    const sep = (lines[0].includes(";") && !lines[0].includes(",")) ? ";" : ",";
+    const headers = lines[0].replace(/^\ufeff/,"").split(sep).map(h=>h.trim());
+    return lines.slice(1).map(line=>{
+      const cells = line.split(sep).map(c=>c.trim());
+      const obj={}; headers.forEach((h,i)=>obj[h]=cells[i]??"");
+      return obj;
+    });
+  }
+  async function loadUrl(which){
+    const url = state.urls[which]; if(!url) return;
+    const res = await fetch(url); const text = await res.text();
+    const rows = parseCSV(text); const qs = rows.map(toQuestion).filter(Boolean);
+    state.data[which] = qs; state.loaded[which] = true; updateStats();
+    refreshAreas();
+  }
+  async function loadFile(which, file){
+    const text = await file.text(); const rows = parseCSV(text);
+    const qs = rows.map(toQuestion).filter(Boolean);
+    state.data[which] = qs; state.loaded[which] = true; updateStats();
+    refreshAreas();
+  }
+  function updateStats(){
+    modes.forEach(m=>{
+      const span = document.getElementById("stat"+m);
+      span.textContent = state.loaded[m] ? (state.data[m].length+" kayıt") : "yüklenmedi";
+    });
+  }
+  function refreshAreas(){
+    const list = Array.from(new Set((state.data[state.mode]||[]).map(q=>q.alan))).sort();
+    selArea.innerHTML = "<option value=''>"+(state.loaded[state.mode]?"Alan seçiniz":"Veri yükleyin")+"</option>";
+    list.forEach(a=>{ const o=document.createElement("option"); o.value=a; o.textContent=a; selArea.appendChild(o); });
+    selLevel.innerHTML = "<option value=''>"+(state.area?"Seviye seçiniz":"Önce alan")+"</option>";
+    btnAsk.disabled = !(state.loaded[state.mode] && state.area && state.level);
+  }
+  function refreshLevels(){
+    const list = Array.from(new Set((state.data[state.mode]||[]).filter(q=>q.alan===state.area).map(q=>q.seviye)));
+    const order = ["Seviye 1","Seviye 2","Seviye 3","Seviye 4","Seviye 5"];
+    const sorted = order.filter(x=>list.includes(x));
+    selLevel.innerHTML = "<option value=''>Seviye seçiniz</option>";
+    sorted.forEach(a=>{ const o=document.createElement("option"); o.value=a; o.textContent=a; selLevel.appendChild(o); });
+    btnAsk.disabled = !(state.loaded[state.mode] && state.area && state.level);
+  }
+  function resetSession(){
+    state.area=""; state.level=""; state.q=null; state.selected=""; state.asked=new Set(); state.score={ok:0,total:0};
+    badgeScore.textContent = "Skor: 0/0";
+    selArea.value=""; selLevel.value="";
+    qText.textContent = "Henüz soru seçilmedi."; qMeta.textContent=""; opts.innerHTML=""; after.style.display="none";
+    stopTimer();
+  }
+  function pickQuestion(){
+    const pool = (state.data[state.mode]||[]).filter(q=>(!state.area || q.alan===state.area) && (!state.level || q.seviye===state.level));
+    if(!pool.length){ qText.textContent="Seçime uygun soru bulunamadı."; return; }
+    const mkId = (q)=> q.alan+"|"+q.seviye+"|"+q.soru;
+    const unused = pool.filter(q=>!state.asked.has(mkId(q)));
+    const list = unused.length? unused : pool;
+    const q = list[Math.floor(Math.random()*list.length)];
+    state.q = q; state.selected=""; state.asked.add(mkId(q));
+    renderQuestion();
+  }
+  function renderQuestion(){
+    const q = state.q; if(!q) return;
+    qMeta.textContent = q.alan+" • "+q.seviye+" • "+state.mode;
+    qText.textContent = q.soru;
+    opts.innerHTML="";
+    ["A","B","C","D"].forEach(L=>{
+      const b = document.createElement("button");
+      b.className="opt"; b.innerHTML = "<b>"+L+")</b> "+q[L];
+      b.onclick = ()=> choose(L, b);
+      b.disabled = false;
+      opts.appendChild(b);
+    });
+    after.style.display="none";
+    startTimer();
+  }
+  function choose(L, btn){
+    if(!state.q || state.selected) return;
+    state.selected = L;
+    const correct = (L === state.q.dogru);
+    state.score.total += 1; state.score.ok += correct ? 1 : 0;
+    badgeScore.textContent = "Skor: "+state.score.ok+"/"+state.score.total;
+    stopTimer();
+    // mark buttons
+    Array.from(opts.children).forEach(ch=>{
+      const letter = ch.textContent.trim().charAt(0);
+      if(letter === state.q.dogru){ ch.classList.add("sel","ok"); }
+      if(letter === L && !correct){ ch.classList.add("sel","bad"); }
+      ch.disabled = true;
+    });
+    ans.textContent = correct ? "Doğru!" : "Yanlış. Doğru cevap: "+state.q.dogru;
+    after.style.display="flex";
+    // sound
+    beep(correct);
+  }
+  function startTimer(){
+    state.left = state.timer;
+    qTimerBar.style.width = "100%";
+    if(state.tick) clearInterval(state.tick);
+    state.tick = setInterval(()=>{
+      state.left -= 1;
+      const pct = Math.max(0, Math.min(100, (state.left/state.timer)*100));
+      qTimerBar.style.width = pct+"%";
+      if(state.left<=0){
+        clearInterval(state.tick); state.tick=null;
+        if(!state.selected){
+          state.selected="__TIMEOUT__";
+          state.score.total += 1;
+          badgeScore.textContent = "Skor: "+state.score.ok+"/"+state.score.total;
+          Array.from(opts.children).forEach(ch=>{
+            const letter = ch.textContent.trim().charAt(0);
+            if(letter === state.q.dogru){ ch.classList.add("sel","ok"); }
+            ch.disabled = true;
+          });
+          ans.textContent = "Süre doldu. Doğru cevap: "+state.q.dogru;
+          after.style.display="flex";
+          beep(false);
+        }
+      }
+    }, 1000);
+  }
+  function stopTimer(){ if(state.tick){ clearInterval(state.tick); state.tick=null; } }
+  async function beep(ok){
+    if(state.muted) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    if(!beep.ctx) beep.ctx = new AC();
+    if (beep.ctx.state === "suspended") { try { await beep.ctx.resume(); } catch(e){} }
+    let t = beep.ctx.currentTime;
+    const tones = ok ? [[784,0.12],[880,0.12],[1046,0.18]] : [[220,0.18,"sawtooth",0.05],[160,0.22,"sawtooth",0.04]];
+    tones.forEach(([f,d=0.14,type="sine",vol=0.06])=>{
+      const osc = beep.ctx.createOscillator(); const g = beep.ctx.createGain();
+      osc.type=type; osc.frequency.setValueAtTime(f,t);
+      g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+      osc.connect(g).connect(beep.ctx.destination); osc.start(t); osc.stop(t+d); t += d + 0.03;
+    });
+  }
+
+  // wire UI
+  document.querySelectorAll("[data-mode]").forEach(btn=>{
+    btn.onclick = () => {
+      document.querySelectorAll("[data-mode]").forEach(b=>b.classList.remove("pri"));
+      btn.classList.add("pri");
+      state.mode = btn.getAttribute("data-mode");
+      badgeMode.textContent = "Mod: "+state.mode;
+      resetSession(); refreshAreas(); updateAskBtn();
+    };
+  });
+  rngTimer.oninput = () => { state.timer = parseInt(rngTimer.value||"20",10); badgeTimer.textContent = state.timer+"s"; };
+  btnMute.onclick = () => { state.muted = !state.muted; btnMute.textContent = state.muted ? "Ses: Kapalı" : "Ses: Açık"; };
+
+  modes.forEach(m=>{
+    const urlInput = document.getElementById("url"+m);
+    const loadBtn = document.querySelector("[data-load='"+m+"']");
+    const fileInput = document.getElementById("file"+m);
+    urlInput.value = state.urls[m];
+    loadBtn.onclick = ()=>{ state.urls[m]=urlInput.value||""; loadUrl(m).catch(e=>alert("Veri indirilemedi: "+e.message)); };
+    fileInput.onchange = (e)=>{ const f=e.target.files&&e.target.files[0]; if(f) loadFile(m,f); };
+  });
+
+  selArea.onchange = ()=>{ state.area = selArea.value; state.level=""; selLevel.value=""; refreshLevels(); updateAskBtn(); };
+  selLevel.onchange = ()=>{ state.level = selLevel.value; updateAskBtn(); };
+  btnAsk.onclick = ()=>{ pickQuestion(); };
+
+  btnNext.onclick = ()=>{ pickQuestion(); };
+
+  function updateAskBtn(){ btnAsk.disabled = !(state.loaded[state.mode] && state.area && state.level); }
+
+  // auto-load defaults
+  Promise.all(modes.map(loadUrl)).catch(()=>{});
+})();</script>
 </body>
 </html>

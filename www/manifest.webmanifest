@@ -3,8 +3,8 @@
   "short_name": "KulturYolu",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#0ea5e9",
+  "background_color": "#0b1220",
+  "theme_color": "#3b82f6",
   "icons": [
     {
       "src": "icons/icon-192.png",
